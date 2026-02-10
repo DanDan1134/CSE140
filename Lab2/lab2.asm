@@ -1,7 +1,5 @@
 
-Page
-2
-of 2
+
 # Traditional Matrix Multiply program
 .data
 matrix_a:
