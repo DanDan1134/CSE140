@@ -70,19 +70,20 @@ INSTRUCTION_MAP = {
 }
 def get_immediate(bits, opcode):
     #Using opcode, take the immediate bits from the instruction and convert to signed decimal.
+
     # I-type: imm is one chunk at [31:20]
     if opcode in ("0010011", "0000011", "1100111"):
         imm_bits = bits[0:12] #first 12 bits are the immediate field for I-type, load, and jalr
         n = 12 #12 bits for immediate
 
     # S-type store
-    elif opcode == "0100011": 
-        imm_bits = bits[0:7] + bits[25:32] #first 7 bits are the immediate field for store, and last 5 bits are the immediate field for store
+    elif opcode == "0100011":
+        imm_bits = bits[0:7] + bits[20:25]
         n = 12 # 12 bits for immediate in S-type
 
-    # SB-type branch
-    elif opcode == "1100011": 
-        imm_bits = bits[0] + bits[20:25] + bits[7:12] + bits[31:32]
+    # SB-type branch: imm[12]|imm[11]|imm[10:5]|imm[4:1]|0 -> bits[0], bits[24], bits[1:7], bits[20:24], "0"
+    elif opcode == "1100011":
+        imm_bits = bits[0] + bits[24] + bits[1:7] + bits[20:24] + "0"
         n = 13 # 13 bits for immediate in SB-type
 
     # UJ-type jump
