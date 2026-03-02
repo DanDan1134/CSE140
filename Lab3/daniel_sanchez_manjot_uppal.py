@@ -72,12 +72,12 @@ def get_immediate(bits, opcode):
     #Using opcode, take the immediate bits from the instruction and convert to signed decimal.
     # I-type: imm is one chunk at [31:20]
     if opcode in ("0010011", "0000011", "1100111"):
-        imm_bits = bits[0:12]
+        imm_bits = bits[0:12] #first 12 bits are the immediate field for I-type, load, and jalr
         n = 12 #12 bits for immediate
 
     # S-type store
     elif opcode == "0100011": 
-        imm_bits = bits[0:7] + bits[25:32] 
+        imm_bits = bits[0:7] + bits[25:32] #first 7 bits are the immediate field for store, and last 5 bits are the immediate field for store
         n = 12 # 12 bits for immediate in S-type
 
     # SB-type branch
@@ -93,26 +93,25 @@ def get_immediate(bits, opcode):
         return None, 0 #if opcode is not in the dictionary, return None and 0
     #convert binary to decimal
     val = int(imm_bits, 2)
+    #used to interpret negative values correctly
     #if the value is greater than or equal to 2^(n-1), subtract 2^n from the value
     if val >= (1 << (n - 1)):
         val -= 1 << n
     return val, n
 
-def format_immediate(imm, bits=32):
-    #format immediate as value (or 0xHEX) for display
-    # (1 << bits) creates a value where the lowest 'bits' number of bits are 1, and the rest are 0 (e.g., for 8 bits: 0b11111111 = 255)
-    n = 1 << bits
-    hex_val = imm % n  # same unsigned value for positive and negative
-    return str(imm) + " (or 0x" + hex(hex_val)[2:].upper() + ")"
+def format_immediate(imm, bits=32): #default bit is 32 if no bits are passed
+    #format immediate as value (or 0xHEX) for display and handle negative values correctly
+    n = 1 << bits #n = 2^bits for defining bit-width range for unsigned values
+    hex_val = imm % n  # for converting imm to unsigned value within given bit-width (n)
+    return str(imm) + " (or 0x" + hex(hex_val)[2:].upper() + ")" #turns into hex using hex(), [2:] to remove 0x, .upper() to make uppercase
 
 
 def decode_instruction(binary_instruction):
-    # RISC-V: opcode is bits [6:0] (rightmost 7), funct7 is [31:25], funct3 is [14:12], etc.
-    # String index 0 = left = bit 31; index 31 = right = bit 0.
-    binary_instruction = binary_instruction.strip().zfill(32)
-    # Determine instruction type based on opcode
+    binary_instruction = binary_instruction.strip().zfill(32) #remove whitespace and fill with 0s to make 32 bits
     
-    opcode = binary_instruction[25:32]      # bits [6:0]
+    # Determine instruction type based on opcode
+    # instructions are 32 bits, opcode is 7 bits, so we need to get the opcode from bits [25:32]
+    opcode = binary_instruction[25:32]      
     if opcode == "0110011":
         ins_type = "R"
     elif opcode == "0010011":
@@ -138,21 +137,26 @@ def decode_instruction(binary_instruction):
     else:
         ins_type = "Unknown"
     type = ins_type
+    #get funct7 and funct3 bits
     funct7_bits = binary_instruction[0:7]   # bits [31:25]
     funct3_bits = binary_instruction[17:20] # bits [14:12]
-    funct3_int = int(funct3_bits, 2)
-    funct7_int = 32 if funct7_bits == "0100000" else int(funct7_bits, 2)  # 0x20 -> 32 for sub/sra/srai
+    #convert funct3 and funct7 bits to integers
+    funct3_int = int(funct3_bits, 2) #int(string_value, base) — e.g., int("1010", 2) returns 10 (binary to decimal).
+    funct7_int = 32 if funct7_bits == "0100000" else int(funct7_bits, 2)  # 32 if bits are 0100000, otherwise convert to decimal
+    #get rd, rs1, and rs2 bits
     rd_bits = binary_instruction[20:25]   # bits [11:7]
     rs1_bits = binary_instruction[12:17]  # bits [19:15]
     rs2_bits = binary_instruction[7:12]  # bits [24:20]
+    #convert rs1, rs2, and rd bits to integers
     rs1_int = int(rs1_bits, 2)
     rs2_int = int(rs2_bits, 2)
     rd_int = int(rd_bits, 2)
    
+    #get instruction name based on opcode and funct3 and funct7 bits
     if opcode in ("0100011", "1100011", "1101111"):
         type_map = INSTRUCTION_MAP[opcode]
         key = (funct3_int,)  # S-type, SB-type, and UJ-type only use funct3 for instruction mapping
-        instruction = type_map.get(key, "Unknown")  #"Unknown" if key is not found
+        instruction = type_map.get(key, "Unknown")  #.get(arg1, arg2) tries to fetch the value for key arg1 from the dictionary; if not found, it returns arg2 instead of raising an error.
         immediate_val, imm_bits = get_immediate(binary_instruction, opcode)
     else:
         type_map = INSTRUCTION_MAP[opcode]
