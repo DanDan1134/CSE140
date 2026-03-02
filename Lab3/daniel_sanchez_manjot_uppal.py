@@ -1,6 +1,8 @@
 #splices binary into opcode, finds opcode type
 #keys are funct3 and funct7 for R-type and I-type, funct3 for other types
 #(funct3, funct7) or (funct3,) -> instruction name
+
+#Daniel Implementation
 INSTRUCTION_MAP = {
     # R-type (opcode 0110011)
     "0110011": {
@@ -68,6 +70,8 @@ INSTRUCTION_MAP = {
         (0,): "jal", #funct3 = 0, no funct7
     },
 }
+
+#Manjot Implementation
 def get_immediate(bits, opcode):
     #Using opcode, take the immediate bits from the instruction and convert to signed decimal.
 
@@ -100,6 +104,7 @@ def get_immediate(bits, opcode):
         val -= 1 << n
     return val, n
 
+#Manjot Implementation
 def format_immediate(imm, bits=32): #default bit is 32 if no bits are passed
     #format immediate as value (or 0xHEX) for display and handle negative values correctly
     n = 1 << bits #n = 2^bits for defining bit-width range for unsigned values
@@ -107,6 +112,7 @@ def format_immediate(imm, bits=32): #default bit is 32 if no bits are passed
     return str(imm) + " (or 0x" + hex(hex_val)[2:].upper() + ")" #turns into hex using hex(), [2:] to remove 0x, .upper() to make uppercase
 
 
+#Daniel Implementation
 def decode_instruction(binary_instruction):
     binary_instruction = binary_instruction.strip().zfill(32) #remove whitespace and fill with 0s to make 32 bits
     
@@ -172,7 +178,7 @@ def decode_instruction(binary_instruction):
  
 
 
-
+#Daniel Implementation
 def main():
     input_binary = input("Enter an instruction: ")
     type, instruction, rs1_int, rs2_int, rd_int, funct3_int, funct7_int, immediate_val, imm_bits = decode_instruction(input_binary)
