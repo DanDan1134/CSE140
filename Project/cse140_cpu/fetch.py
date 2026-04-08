@@ -1,12 +1,28 @@
 """
-Fetch stage — read next instruction from program using pc, set next_pc / update pc (see project PDF).
+Fetch stage — read instruction at pc (byte address), set next_pc, update pc after cycle.
 
-Demo this file alone later: add if __name__ == "__main__" with a tiny test when implemented.
+Call fetch() then decode/execute/mem/writeback, then update_pc() so branch_target is known.
 """
+
+# Daniel Implementation
 
 from typing import Optional
 
+import state #for global state (pc, next_pc, branch_target, program_instructions)
 
+# returns 32-bit string or None when done
 def fetch() -> Optional[str]:
-    # TODO: use global pc, program list; return 32-bit string or None when done
-    return None
+    index = state.pc // 4 #get the index of the instruction in the program instructions
+    if index >= len(state.program_instructions): #if index is greater than the length of the program instructions, return None
+        return None
+    state.next_pc = state.pc + 4 #increment the pc by 4 because instructions are 4 bytes long
+    return state.program_instructions[index] #return the instruction
+
+
+# updates the pc after the cycle
+def update_pc() -> None:
+    #After execute: pc = branch_target if beq taken, else next_pc.
+    if state.branch and state.alu_zero: #if branch is 1 and alu_zero is 1, then the branch is taken
+        state.pc = state.branch_target #update the pc to the branch target
+    else:
+        state.pc = state.next_pc #update the pc to the next pc
