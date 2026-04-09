@@ -3,6 +3,9 @@
 # (funct3, funct7) or (funct3,) -> instruction name
 
 # Daniel Implementation
+
+import state
+
 INSTRUCTION_MAP = {
     # R-type (opcode 0110011)
     "0110011": {
@@ -207,3 +210,150 @@ def print_decoded_instruction(
         print("Rd: x" + str(rd_int))
         if immediate_val is not None:
             print("Immediate:", format_immediate(immediate_val, imm_bits))
+
+
+# ALUOp: 0 = load/store (add addr), 1 = branch (sub compare), 2 = R-type / I-ALU (funct3[/funct7])
+#all control signals are set to 0 initially
+def control_unit(opcode):
+    state.reg_write = 0
+    state.mem_read = 0
+    state.mem_write = 0
+    state.mem_to_reg = 0
+    state.alu_src = 0
+    state.branch = 0
+    state.alu_op = 0
+
+   
+#depending on the opcode, the control signals are set accordingly
+    if opcode == "0000011":  # lw
+        state.reg_write = 1
+        state.mem_read = 1
+        state.mem_write = 0
+        state.mem_to_reg = 1
+        state.alu_src = 1
+        state.branch = 0
+        state.alu_op = 0
+    elif opcode == "0100011":  # sw
+        state.reg_write = 0
+        state.mem_read = 0
+        state.mem_write = 1
+        state.mem_to_reg = 0
+        state.alu_src = 1
+        state.branch = 0
+        state.alu_op = 0
+    elif opcode == "1100011":  # beq, ...
+        state.reg_write = 0
+        state.mem_read = 0
+        state.mem_write = 0
+        state.mem_to_reg = 0
+        state.alu_src = 0
+        state.branch = 1
+        state.alu_op = 1
+    elif opcode == "0110011":  # R-type
+        state.reg_write = 1
+        state.mem_read = 0
+        state.mem_write = 0
+        state.mem_to_reg = 0
+        state.alu_src = 0
+        state.branch = 0
+        state.alu_op = 2
+    elif opcode == "0010011":  # addi, andi, ori, ...
+        state.reg_write = 1
+        state.mem_read = 0
+        state.mem_write = 0
+        state.mem_to_reg = 0
+        state.alu_src = 1
+        state.branch = 0
+        state.alu_op = 2
+
+
+#ALU control unit, determines the ALU operation to be performed
+def alu_control():
+    #4-bit ALU control per lecture: 0010 add, 0110 sub, 0000 AND, 0001 OR.
+    op = state.alu_op
+    if op == 0:
+        state.alu_ctrl = 0b0010 #if alu_op is 0, the ALU operation is add (0b0010 is hex for 2 which is the add operation)
+    elif op == 1:
+        state.alu_ctrl = 0b0110
+    elif op == 2:
+        f3 = state.funct3
+        f7 = state.funct7
+        if state.opcode == "0010011":
+            if f3 == 0:
+                state.alu_ctrl = 0b0010
+            elif f3 == 7:
+                state.alu_ctrl = 0b0000
+            elif f3 == 6:
+                state.alu_ctrl = 0b0001
+            else:
+                state.alu_ctrl = 0b0010
+        else:
+            if f3 == 0 and f7 == 0:
+                state.alu_ctrl = 0b0010
+            elif f3 == 0 and f7 == 32:
+                state.alu_ctrl = 0b0110
+            elif f3 == 7 and f7 == 0:
+                state.alu_ctrl = 0b0000
+            elif f3 == 6 and f7 == 0:
+                state.alu_ctrl = 0b0001
+            else:
+                state.alu_ctrl = 0b0010
+    else:
+        state.alu_ctrl = 0b0010
+
+#apply the decoded fields to the state in state.py
+def apply_decode_fields_to_state(
+    type_,
+    instruction,
+    rs1_int,
+    rs2_int,
+    rd_int,
+    funct3_int,
+    funct7_int,
+    immediate_val,
+):
+    state.instruction_type = type_
+    state.instruction_name = instruction
+    state.rs1 = rs1_int
+    state.rs2 = rs2_int
+    state.rd = rd_int
+    state.funct3 = funct3_int
+    state.funct7 = funct7_int
+    if immediate_val is not None:
+        state.imm = immediate_val
+    else:
+        state.imm = 0
+
+
+#decode the instruction and fill the state in state.py
+def decode_and_fill_state(binary_instruction):
+    bits = binary_instruction.strip().zfill(32)
+    state.opcode = bits[25:32]
+    decoded = decode_instruction(bits)
+    (
+        type_,
+        instruction,
+        rs1_int,
+        rs2_int,
+        rd_int,
+        funct3_int,
+        funct7_int,
+        immediate_val,
+        imm_bits,
+    ) = decoded
+    apply_decode_fields_to_state(
+        type_,
+        instruction,
+        rs1_int,
+        rs2_int,
+        rd_int,
+        funct3_int,
+        funct7_int,
+        immediate_val,
+    )
+    #read the data from the register file
+    state.read_data_1 = 0 if state.rs1 == 0 else state.rf[state.rs1]
+    state.read_data_2 = 0 if state.rs2 == 0 else state.rf[state.rs2]
+    control_unit(state.opcode)
+    alu_control()
+
