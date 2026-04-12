@@ -47,3 +47,4 @@ alu_ctrl = 0
 alu_result = 0
 mem_read_data = 0
 write_back_data = 0
+total_clock_cycles = 0
