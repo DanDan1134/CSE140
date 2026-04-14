@@ -269,16 +269,16 @@ def control_unit(opcode):
 
 #ALU control unit, determines the ALU operation to be performed
 def alu_control():
-    #4-bit ALU control per lecture: 0010 add, 0110 sub, 0000 AND, 0001 OR.
+    #4-bit ALU control: 0010 add, 0110 sub, 0000 AND, 0001 OR.
     op = state.alu_op
     if op == 0:
         state.alu_ctrl = 0b0010 #if alu_op is 0, the ALU operation is add (0b0010 is hex for 2 which is the add operation)
-    elif op == 1:
+    elif op == 1: #if alu_op is 1, the ALU operation is sub (0b0110 is hex for 6 which is the sub operation)
         state.alu_ctrl = 0b0110
-    elif op == 2:
+    elif op == 2: #if alu_op is 2, the ALU operation is determined by the funct3 and funct7 bits
         f3 = state.funct3
         f7 = state.funct7
-        if state.opcode == "0010011":
+        if state.opcode == "0010011": #if the opcode is 0010011, the ALU operation is determined by the funct3 bit
             if f3 == 0:
                 state.alu_ctrl = 0b0010
             elif f3 == 7:
