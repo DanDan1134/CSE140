@@ -25,7 +25,7 @@ def writeback():
     else: # R-type and I-type instructions: use ALU result
         data = state.alu_result
     state.write_back_data = data # for logging and debugging
-    state.rf[state.rd] = data # write the data to the register file
+    state.rf[state.rd] = data # write the data to the register file, we will print rd (data) to console later
     state.rf[0] = 0  # keep x0 hard-wired to 0 because it is always 0
 
 
