@@ -13,8 +13,8 @@ alu_zero = 0  # ALU zero output (for beq)
 # register file x0..x31 (x0 reads as 0; keep rf[0] == 0)
 rf = [0] * 32
 
-# data memory
-d_mem = {}  # for byte addresses (int keys for each byte, values as ints)
+# data memory: 32 entries, each entry is one 4-byte word
+d_mem = [0] * 32
 
 # decoded instruction (set in decode)
 opcode = ""  # 7-bit opcode string, bits [6:0] as in instruction word
