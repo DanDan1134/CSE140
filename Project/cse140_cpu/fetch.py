@@ -20,6 +20,7 @@ def fetch() -> Optional[str]: #optional because it returns either str or none
 
 
 # updates the pc after the cycle
+# will add more logic for jal and jalr later
 def update_pc() -> None:
     #After execute: pc = branch_target if beq taken, else next_pc.
     if state.branch and state.alu_zero: #if branch is 1 and alu_zero is 1, then the branch is taken
