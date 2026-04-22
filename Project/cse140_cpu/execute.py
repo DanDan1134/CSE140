@@ -28,9 +28,11 @@ def Execute():
 
     state.alu_result = result
     state.alu_zero = 1 if result == 0 else 0
-
-    shifted_offset = state.imm << 1
-    state.branch_target = state.next_pc + shifted_offset
+    if state.jump == 1 and state.jump_reg == 1:
+        # jalr target: rs1 + imm, clear bit 0 for alignment
+        state.branch_target = (state.read_data_1 + state.imm) & ~1 #& ~1 clears the least significant bit to make it word aligned
+    else: #else jal target: pc + imm << 1 (shift left by 1 to make it byte aligned)
+        state.branch_target = state.next_pc + (state.imm << 1)
 
 
 def execute():

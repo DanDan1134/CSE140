@@ -76,6 +76,7 @@ def get_immediate(bits, opcode):
     if opcode in ("0010011", "0000011", "1100111"):
         imm_bits = bits[0:12]
         n = 12
+    
     elif opcode == "0100011":
         imm_bits = bits[0:7] + bits[20:25]
         n = 12
@@ -126,6 +127,7 @@ def decode_instruction(binary_instruction):
         ins_type = "UJ"
     elif opcode == "1110011":
         ins_type = "I"
+    
     else:
         ins_type = "Unknown"
     type_ = ins_type
@@ -144,6 +146,9 @@ def decode_instruction(binary_instruction):
         type_map = INSTRUCTION_MAP[opcode]
         key = (funct3_int,)
         instruction = type_map.get(key, "Unknown")
+        immediate_val, imm_bits = get_immediate(binary_instruction, opcode)
+    elif opcode == "1100111" and funct3_int != 0: #incase of jalr with funct3 != 0, returns unknown instruction
+        instruction = "Unknown"
         immediate_val, imm_bits = get_immediate(binary_instruction, opcode)
     else:
         type_map = INSTRUCTION_MAP[opcode]
