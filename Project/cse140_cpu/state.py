@@ -10,6 +10,7 @@ program_instructions = []  # list of 32-bit instruction strings
 branch = 0  # branch flag (control)
 alu_zero = 0  # ALU zero output (for beq)
 
+
 # register file x0..x31 (x0 reads as 0; keep rf[0] == 0)
 rf = [0] * 32
 
@@ -39,6 +40,11 @@ mem_to_reg = 0
 alu_src = 0
 # ALUOp: encode to match your lecture table (e.g. 00=add, 01=sub/beq, 10=funct)
 alu_op = 0
+
+#jump control signals
+jump = 0 #jump flag 1=jal, 0=no jump
+jump_reg = 0 #register based jump 1=jalr, 0=jal target is rs1 + imm
+wb_pc4 = 0 #tells wb to store pc+4 (return address) into rd
 
 # ALU control line for execute (set in decode or start of execute)
 alu_ctrl = 0

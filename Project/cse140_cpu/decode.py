@@ -222,6 +222,9 @@ def control_unit(opcode):
     state.alu_src = 0
     state.branch = 0
     state.alu_op = 0
+    state.jump = 0
+    state.jump_reg = 0
+    state.wb_pc4 = 0
 
    
 #depending on the opcode, the control signals are set accordingly
@@ -257,7 +260,7 @@ def control_unit(opcode):
         state.alu_src = 0
         state.branch = 0
         state.alu_op = 2
-    elif opcode == "0010011":  # addi, andi, ori, ...
+    elif opcode == "0010011":  # I type...addi, andi, ori, ...
         state.reg_write = 1
         state.mem_read = 0
         state.mem_write = 0
@@ -265,6 +268,17 @@ def control_unit(opcode):
         state.alu_src = 1
         state.branch = 0
         state.alu_op = 2
+    elif opcode == "1100111":  # jalr
+        state.reg_write = 1
+        state.mem_read = 0
+        state.mem_write = 0
+        state.mem_to_reg = 0
+        state.alu_src = 1
+        state.branch = 0
+        state.alu_op = 0 #since we do rs1 + imm, we use add operation
+        state.jump = 1
+        state.jump_reg = 1
+        state.wb_pc4 = 1
 
 
 #ALU control unit, determines the ALU operation to be performed

@@ -19,6 +19,7 @@ def fetch() -> Optional[str]: #optional because it returns either str or none
     return state.program_instructions[index] #return the instruction
 
 
+
 # updates the pc after the cycle
 # will add more logic for jal and jalr later
 def update_pc() -> None:
