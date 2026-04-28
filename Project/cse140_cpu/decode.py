@@ -142,10 +142,13 @@ def decode_instruction(binary_instruction):
     rs2_int = int(rs2_bits, 2)
     rd_int = int(rd_bits, 2)
 
-    if opcode in ("0100011", "1100011", "1101111"):
+    if opcode in ("0100011", "1100011"):
         type_map = INSTRUCTION_MAP[opcode]
         key = (funct3_int,)
         instruction = type_map.get(key, "Unknown")
+        immediate_val, imm_bits = get_immediate(binary_instruction, opcode)
+    elif opcode == "1101111":
+        instruction = "jal"
         immediate_val, imm_bits = get_immediate(binary_instruction, opcode)
     elif opcode == "1100111" and funct3_int != 0: #incase of jalr with funct3 != 0, returns unknown instruction
         instruction = "Unknown"
@@ -283,6 +286,17 @@ def control_unit(opcode):
         state.alu_op = 0 #since we do rs1 + imm, we use add operation
         state.jump = 1
         state.jump_reg = 1
+        state.wb_pc4 = 1
+    elif opcode == "1101111":  # jal
+        state.reg_write = 1
+        state.mem_read = 0
+        state.mem_write = 0
+        state.mem_to_reg = 0
+        state.alu_src = 0
+        state.branch = 0
+        state.alu_op = 0
+        state.jump = 1
+        state.jump_reg = 0
         state.wb_pc4 = 1
 
 

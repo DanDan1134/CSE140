@@ -31,8 +31,12 @@ def Execute():
     if state.jump == 1 and state.jump_reg == 1:
         # jalr target: rs1 + imm, clear bit 0 for alignment
         state.branch_target = (state.read_data_1 + state.imm) & ~1 #& ~1 clears the least significant bit to make it word aligned
-    else: #else jal target: pc + imm << 1 (shift left by 1 to make it byte aligned)
-        state.branch_target = state.next_pc + (state.imm << 1)
+    elif state.jump == 1:
+        # jal target is PC-relative byte offset
+        state.branch_target = state.pc + state.imm
+    elif state.branch == 1:
+        # branch immediate is already byte aligned in decode
+        state.branch_target = state.pc + state.imm
 
 
 def execute():
