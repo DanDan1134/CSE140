@@ -39,6 +39,7 @@ def reset_control_signals():
     state.mem_read_data = 0
     state.write_back_data = 0
 
+#reset the cpu state
 def reset_cpu_state():
     state.pc = 0
     state.next_pc = 0
@@ -62,6 +63,7 @@ def reset_cpu_state():
 
     reset_control_signals()
 
+#initialize the sample data for part 1 and part 2
 def init_samples(filename):
     # part 1 sample init
     if filename.endswith("sample_part1.txt"):
@@ -80,6 +82,7 @@ def init_samples(filename):
         state.rf[12] = 0xA   # a2
         state.rf[13] = 0xF   # a3
 
+#load the program file and store the instructions in the program_instructions list
 def load_program(filename):
     lines = []
     with open(filename, "r") as f:
@@ -89,43 +92,44 @@ def load_program(filename):
                 lines.append(bits)
     state.program_instructions = lines
 
+#print the cycle changes
 def print_cycle_changes(old_rf, old_mem):
     cycle = state.total_clock_cycles
     print(f"\ntotal_clock_cycles {cycle} :")
 
-    reg_changed = False
+    reg_changed = False #check if the register has changed
     for i in range(32):
-        if old_rf[i] != state.rf[i]:
-            reg_label = REG_NAMES[i] if use_reg_names else f"x{i}"
+        if old_rf[i] != state.rf[i]: #check if the register has changed
+            reg_label = REG_NAMES[i] if use_reg_names else f"x{i}" #use the register names (ra, a0, etc.) if the filename ends with sample_part2.txt
             print(f"{reg_label} is modified to 0x{state.rf[i]:x}")
-            reg_changed = True
+            reg_changed = True #set the register changed to true
             break
-    if not reg_changed:
-        for i in range(len(state.d_mem)):
-            if old_mem[i] != state.d_mem[i]:
-                addr = i * 4
-                print(f"memory 0x{addr:x} is modified to 0x{state.d_mem[i]:x}")
+    if not reg_changed: #if the register has not changed, check if the memory has changed
+        for i in range(len(state.d_mem)): 
+            if old_mem[i] != state.d_mem[i]: #check if the memory has changed
+                addr = i * 4 #get the address of the memory
+                print(f"memory 0x{addr:x} is modified to 0x{state.d_mem[i]:x}") #print the memory changess
                 break
 
-    print(f"pc is modified to 0x{state.pc:x}")
+    print(f"pc is modified to 0x{state.pc:x}") #print the pc changes
 
 
 
 
 def main():
-    global use_reg_names 
+    global use_reg_names # for use in print_cycle_changes
     print("Enter the program file name to run:")
     filename = input().strip()
-    use_reg_names = filename.endswith("sample_part2.txt")
+    use_reg_names = filename.endswith("sample_part2.txt") #set the use_reg_names to true if the filename ends with sample_part2.txt
     reset_cpu_state()
     load_program(filename)
     init_samples(filename)
 
-    while True:
-        old_rf = state.rf[:]
-        old_mem = state.d_mem[:]
+    while True: #loop through the program instructions
+        old_rf = state.rf[:] #store the old register file
+        old_mem = state.d_mem[:] #store the old memory
         inst = fetch()
-        if inst is None:
+        if inst is None: #if the instruction is None, break the loop
             break
 
         decode_and_fill_state(inst)
