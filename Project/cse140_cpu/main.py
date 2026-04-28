@@ -11,6 +11,14 @@ from execute import execute
 from mem import mem
 from writeback import writeback
 
+REG_NAMES = [ 
+    "zero", "ra", "sp", "gp", "tp", "t0", "t1", "t2",
+    "s0", "s1", "a0", "a1", "a2", "a3", "a4", "a5",
+    "a6", "a7", "s2", "s3", "s4", "s5", "s6", "s7",
+    "s8", "s9", "s10", "s11", "t3", "t4", "t5", "t6",
+]
+use_reg_names = False #use the ABI register names if the filename ends with sample_part2.txt
+
 # reset all control signals to 0
 def reset_control_signals():
     state.reg_write = 0
@@ -57,8 +65,8 @@ def reset_cpu_state():
 def init_samples(filename):
     # part 1 sample init
     if filename.endswith("sample_part1.txt"):
-        state.rf[1] = 0x20
-        state.rf[2] = 0x5
+        state.rf[1] = 0x20 
+        state.rf[2] = 0x5 
         state.rf[10] = 0x70
         state.rf[11] = 0x4
         state.d_mem[0x70 // 4] = 0x5
@@ -88,7 +96,8 @@ def print_cycle_changes(old_rf, old_mem):
     reg_changed = False
     for i in range(32):
         if old_rf[i] != state.rf[i]:
-            print(f"x{i} is modified to 0x{state.rf[i]:x}")
+            reg_label = REG_NAMES[i] if use_reg_names else f"x{i}"
+            print(f"{reg_label} is modified to 0x{state.rf[i]:x}")
             reg_changed = True
             break
     if not reg_changed:
@@ -104,8 +113,10 @@ def print_cycle_changes(old_rf, old_mem):
 
 
 def main():
+    global use_reg_names 
     print("Enter the program file name to run:")
     filename = input().strip()
+    use_reg_names = filename.endswith("sample_part2.txt")
     reset_cpu_state()
     load_program(filename)
     init_samples(filename)
