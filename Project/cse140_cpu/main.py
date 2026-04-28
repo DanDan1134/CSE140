@@ -66,16 +66,16 @@ def reset_cpu_state():
 #initialize the sample data for part 1 and part 2
 def init_samples(filename):
     # part 1 sample init
-    if filename.endswith("sample_part1.txt"):
+    if filename.endswith("sample_part1.txt"): #assigns the values to the registers and memory
         state.rf[1] = 0x20 
         state.rf[2] = 0x5 
         state.rf[10] = 0x70
         state.rf[11] = 0x4
-        state.d_mem[0x70 // 4] = 0x5
+        state.d_mem[0x70 // 4] = 0x5 #// 4 means divide by 4 to get the index of the memory
         state.d_mem[0x74 // 4] = 0x10
 
     #part 2 sample init
-    elif filename.endswith("sample_part2.txt"):
+    elif filename.endswith("sample_part2.txt"): #assigns the values to the registers and memory
         state.rf[8] = 0x20   # s0
         state.rf[10] = 0x5   # a0
         state.rf[11] = 0x2   # a1
@@ -127,7 +127,7 @@ def main():
 
     while True: #loop through the program instructions
         old_rf = state.rf[:] #store the old register file
-        old_mem = state.d_mem[:] #store the old memory
+        old_mem = state.d_mem[:] #store the old memory 
         inst = fetch()
         if inst is None: #if the instruction is None, break the loop
             break
