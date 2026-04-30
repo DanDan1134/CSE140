@@ -1,9 +1,10 @@
 """
-Entry point — the only script you run (python cse140_cpu/main.py from Project).
+Entry point — run from Project/cse140_cpu: python main.py
 
-Later: load program file, loop fetch -> decode -> execute -> mem -> writeback.
+Pipelined mode: same print lines as Part 1–2. One loop iteration = one clock tick (extra credit).
 """
 
+import copy  # shallow copy for holding IF/ID when stalled (stall = wait cycle; no new decode)
 import state
 from fetch import fetch, update_pc
 from decode import decode_and_fill_state
@@ -23,11 +24,29 @@ use_reg_names = False #use the ABI register names if the filename ends with samp
 #returns true if the pipeline is empty, false otherwise
 def pipeline_empty():
     return (
-        not state.if_id.valid and #if if_id is not valid, then the pipeline is empty
-        not state.id_ex.valid and
-        not state.ex_mem.valid and
-        not state.mem_wb.valid
+        not state.if_id.valid
+        and not state.id_ex.valid
+        and not state.ex_mem.valid
+        and not state.mem_wb.valid
     )
+
+
+def pipeline_data_hazard(if_id, id_ex, ex_mem, mem_wb):
+    """True if IF/ID needs a register still in flight in EX, MEM, or MEM/WB (no forwarding = stall)."""
+    if not if_id.valid or not if_id.instr:
+        return False
+    bits = if_id.instr.strip().zfill(32)
+    opc = bits[25:32]  # main opcode field
+    rs1 = int(bits[12:17], 2)  # first source register number
+    uses_rs2 = opc in ("0110011", "0100011", "1100011")  # R-type, store, branch use rs2
+    rs2 = int(bits[7:12], 2) if uses_rs2 else None
+    for pipe in (id_ex, ex_mem, mem_wb):
+        if pipe.valid and pipe.reg_write == 1 and pipe.rd != 0:
+            if pipe.rd == rs1:
+                return True
+            if rs2 is not None and pipe.rd == rs2:
+                return True
+    return False
 
 # reset all control signals to 0
 def reset_control_signals():
@@ -52,6 +71,7 @@ def reset_control_signals():
 #reset the cpu state
 def reset_cpu_state():
     state.pc = 0
+    state.fetch_pc = 0  # IF starts fetching from address 0
     state.next_pc = 0
     state.total_clock_cycles = 0
     state.program_instructions = []
@@ -102,10 +122,12 @@ def load_program(filename):
                 lines.append(bits)
     state.program_instructions = lines
 
-#print the cycle changes
-def print_cycle_changes(old_rf, old_mem):
+# Same print shape as Part 1–2: header, optional first register or memory change, then pc.
+# Pipelining: early cycles often only show pc (instruction still in flight). Stalls add extra
+# cycles that may also be pc-only unless you print a separate stall line.
+def print_cycle_changes(old_rf, old_mem, stage_line):
     cycle = state.total_clock_cycles
-    print(f"\ntotal_clock_cycles {cycle} :")
+    print(f"\ntotal_clock_cycles {cycle} : {stage_line}")
 
     reg_changed = False #check if the register has changed
     for i in range(32):
@@ -121,16 +143,12 @@ def print_cycle_changes(old_rf, old_mem):
                 print(f"memory 0x{addr:x} is modified to 0x{state.d_mem[i]:x}") #print the memory changess
                 break
 
-    print(f"pc is modified to 0x{state.pc:x}") #print the pc changes
-
-
-
-
+    print(f"pc is modified to 0x{state.fetch_pc:x}")  # show next fetch address (architectural PC for pipeline)
 def main():
-    global use_reg_names # for use in print_cycle_changes
+    global use_reg_names  # for use in print_cycle_changes
     print("Enter the program file name to run:")
     filename = input().strip()
-    use_reg_names = filename.endswith("sample_part2.txt") #set the use_reg_names to true if the filename ends with sample_part2.txt
+    use_reg_names = filename.endswith("sample_part2.txt")  # use ABI names for part2 sample
     reset_cpu_state()
     load_program(filename)
     init_samples(filename)
@@ -138,17 +156,23 @@ def main():
 
     fetch_done = False
 
-    while True: #one iteration = one clock cycle
-        old_rf = state.rf[:] #store the old register file
-        old_mem = state.d_mem[:] #store the old memory
+    while True:  # one loop = one clock tick (extra credit)
+        state.total_clock_cycles += 1
+        old_rf = state.rf[:]
+        old_mem = state.d_mem[:]
+        saved_fpc = state.fetch_pc
 
-        # start next pipeline registers as bubbles for this cycle
         state.if_id_next = state.IF_ID()
         state.id_ex_next = state.ID_EX()
         state.ex_mem_next = state.EX_MEM()
         state.mem_wb_next = state.MEM_WB()
 
-        # WB stage (start with wb because it prevents overwriting the old values)
+        wb_active = state.mem_wb.valid
+        mem_active = state.ex_mem.valid
+        ex_active = state.id_ex.valid
+        decode_active = False
+        fetch_active = False
+
         if state.mem_wb.valid:
             state.rd = state.mem_wb.rd
             state.alu_result = state.mem_wb.alu_result
@@ -163,7 +187,6 @@ def main():
             state.wb_pc4 = 0
         writeback()
 
-        # MEM stage
         if state.ex_mem.valid:
             state.alu_result = state.ex_mem.alu_result
             state.read_data_2 = state.ex_mem.store_data
@@ -180,9 +203,12 @@ def main():
             state.mem_wb_next.mem_to_reg = state.ex_mem.mem_to_reg
             state.mem_wb_next.wb_pc4 = state.ex_mem.wb_pc4
 
-        # EX stage
+        stall = pipeline_data_hazard(state.if_id, state.id_ex, state.ex_mem, state.mem_wb)
+
+        branch_taken = False
         if state.id_ex.valid:
             state.pc = state.id_ex.pc
+            state.next_pc = state.id_ex.pc4
             state.imm = state.id_ex.imm
             state.read_data_1 = state.id_ex.read_data_1
             state.read_data_2 = state.id_ex.read_data_2
@@ -208,11 +234,16 @@ def main():
             state.ex_mem_next.jump = state.id_ex.jump
             state.ex_mem_next.wb_pc4 = state.id_ex.wb_pc4
 
-            # temporary PC update hook until branch/flush logic is moved fully to pipeline control
-            update_pc()
+            branch_taken = (state.id_ex.branch == 1 and state.alu_zero == 1) or (state.id_ex.jump == 1)
+            if branch_taken and (not stall):
+                update_pc()
 
-        # ID stage
-        if state.if_id.valid:
+        if stall:
+            state.fetch_pc = saved_fpc
+            state.pc = state.fetch_pc
+
+        if state.if_id.valid and (not stall) and (not branch_taken):
+            decode_active = True
             decode_and_fill_state(state.if_id.instr)
 
             state.id_ex_next.valid = True
@@ -239,33 +270,64 @@ def main():
             state.id_ex_next.wb_pc4 = state.wb_pc4
             state.id_ex_next.alu_ctrl = state.alu_ctrl
 
-        # IF stage
-        inst = fetch()
-        if inst is None:
-            fetch_done = True
+        if stall:
+            state.if_id_next = copy.copy(state.if_id)
+        elif branch_taken:
+            state.if_id_next = state.IF_ID()
+            instr_pc = state.fetch_pc
+            inst = fetch()
+            if inst is None:
+                fetch_done = True
+            else:
+                fetch_active = True
+                state.if_id_next.valid = True
+                state.if_id_next.pc = instr_pc
+                state.if_id_next.pc4 = state.next_pc
+                state.if_id_next.instr = inst
+                state.fetch_pc = state.next_pc
         else:
-            state.if_id_next.valid = True
-            state.if_id_next.pc = state.pc
-            state.if_id_next.pc4 = state.next_pc
-            state.if_id_next.instr = inst
-            # default sequential fetch movement (subject to EX update_pc above)
-            if not (state.id_ex.valid and (state.id_ex.branch == 1 or state.id_ex.jump == 1)):
-                state.pc = state.next_pc
+            instr_addr = state.fetch_pc
+            inst = fetch()
+            if inst is None:
+                fetch_done = True
+            else:
+                fetch_active = True
+                state.if_id_next.valid = True
+                state.if_id_next.pc = instr_addr
+                state.if_id_next.pc4 = state.next_pc
+                state.if_id_next.instr = inst
+                state.fetch_pc = state.next_pc
+        state.pc = state.fetch_pc
 
-        # commit next pipeline registers at end of cycle
         state.if_id = state.if_id_next
         state.id_ex = state.id_ex_next
         state.ex_mem = state.ex_mem_next
         state.mem_wb = state.mem_wb_next
 
-        print_cycle_changes(old_rf, old_mem)
+        stage_parts = []
+        if fetch_active:
+            stage_parts.append("IF")
+        if decode_active:
+            stage_parts.append("ID")
+        if ex_active:
+            stage_parts.append("EX")
+        if mem_active:
+            stage_parts.append("MEM")
+        if wb_active:
+            stage_parts.append("WB")
+        if stall:
+            stage_parts.append("STALL")
+        if branch_taken:
+            stage_parts.append("FLUSH")
+        stage_line = " | ".join(stage_parts) if stage_parts else "-"
+
+        print_cycle_changes(old_rf, old_mem, stage_line)
 
         if fetch_done and pipeline_empty():
             break
 
     print("\nprogram terminated:")
     print(f"total execution time is {state.total_clock_cycles} cycles")
-
 
 
 if __name__ == "__main__":

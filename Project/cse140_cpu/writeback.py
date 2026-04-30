@@ -1,9 +1,8 @@
 """
 
-Writeback stage — MemToReg mux, write rf when RegWrite; increment total_clock_cycles
+Writeback stage — MemToReg mux, write rf when RegWrite.
 
-writes the data to the register file
-
+Clock cycles are counted in main.py (one per pipeline tick), not here.
 
 """
 
@@ -12,11 +11,8 @@ import state
 
 def writeback():
 
-    # One instruction finished this cycle (including sw / beq with no reg write).
-
-    state.total_clock_cycles += 1
-
-    if state.reg_write == 0: return # no register update this cycle
+    if state.reg_write == 0:
+        return
         
     if state.rd == 0: return # x0 is not writable so we just return
           

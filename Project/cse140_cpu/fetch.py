@@ -12,10 +12,10 @@ import state #for global state (pc, next_pc, branch_target, program_instructions
 
 # returns 32-bit string or None when done
 def fetch() -> Optional[str]: #optional because it returns either str or none
-    index = state.pc // 4 #get the index of the instruction in the program instructions (turns byte address into index) -> 0//4 = 0, 4//4 1, and so on
+    index = state.fetch_pc // 4  # IF uses fetch_pc, not EX-stage pc
     if index >= len(state.program_instructions): #if index is greater than the length of the program instructions, return None (finished)
         return None
-    state.next_pc = state.pc + 4 #increment the pc by 4 because instructions are 4 bytes long
+    state.next_pc = state.fetch_pc + 4 #increment the fetch_pc by 4 because instructions are 4 bytes long
     return state.program_instructions[index] #return the instruction
 
 
@@ -24,9 +24,10 @@ def fetch() -> Optional[str]: #optional because it returns either str or none
 # will add more logic for jal and jalr later
 def update_pc() -> None:
     if state.jump == 1:
-        state.pc = state.branch_target
+        state.fetch_pc = state.branch_target
     #After execute: pc = branch_target if beq taken, else next_pc.
     elif state.branch and state.alu_zero: #if branch is 1 and alu_zero is 1, then the branch is taken
-        state.pc = state.branch_target #update the pc to the branch target
+        state.fetch_pc = state.branch_target #update the pc to the branch target
     else:
-        state.pc = state.next_pc #update the pc to the next pc
+        state.fetch_pc = state.next_pc #update the pc to the next pc
+    state.pc = state.fetch_pc
