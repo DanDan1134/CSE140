@@ -19,6 +19,16 @@ REG_NAMES = [
 ]
 use_reg_names = False #use the ABI register names if the filename ends with sample_part2.txt
 
+#check if the pipeline is empty
+#returns true if the pipeline is empty, false otherwise
+def pipeline_empty():
+    return (
+        not state.if_id.valid and #if if_id is not valid, then the pipeline is empty
+        not state.id_ex.valid and
+        not state.ex_mem.valid and
+        not state.mem_wb.valid
+    )
+
 # reset all control signals to 0
 def reset_control_signals():
     state.reg_write = 0
@@ -124,22 +134,134 @@ def main():
     reset_cpu_state()
     load_program(filename)
     init_samples(filename)
+    state.reset_pipeline_regs()
 
-    while True: #loop through the program instructions
+    fetch_done = False
+
+    while True: #one iteration = one clock cycle
         old_rf = state.rf[:] #store the old register file
-        old_mem = state.d_mem[:] #store the old memory 
-        inst = fetch()
-        if inst is None: #if the instruction is None, break the loop
-            break
+        old_mem = state.d_mem[:] #store the old memory
 
-        decode_and_fill_state(inst)
-        execute()
-        mem()
+        # start next pipeline registers as bubbles for this cycle
+        state.if_id_next = state.IF_ID()
+        state.id_ex_next = state.ID_EX()
+        state.ex_mem_next = state.EX_MEM()
+        state.mem_wb_next = state.MEM_WB()
+
+        # WB stage (start with wb because it prevents overwriting the old values)
+        if state.mem_wb.valid:
+            state.rd = state.mem_wb.rd
+            state.alu_result = state.mem_wb.alu_result
+            state.mem_read_data = state.mem_wb.mem_read_data
+            state.reg_write = state.mem_wb.reg_write
+            state.mem_to_reg = state.mem_wb.mem_to_reg
+            state.wb_pc4 = state.mem_wb.wb_pc4
+            state.next_pc = state.mem_wb.pc4
+        else:
+            state.reg_write = 0
+            state.mem_to_reg = 0
+            state.wb_pc4 = 0
         writeback()
-        update_pc()
 
+        # MEM stage
+        if state.ex_mem.valid:
+            state.alu_result = state.ex_mem.alu_result
+            state.read_data_2 = state.ex_mem.store_data
+            state.mem_read = state.ex_mem.mem_read
+            state.mem_write = state.ex_mem.mem_write
+            mem()
+
+            state.mem_wb_next.valid = True
+            state.mem_wb_next.pc4 = state.ex_mem.pc4
+            state.mem_wb_next.rd = state.ex_mem.rd
+            state.mem_wb_next.alu_result = state.ex_mem.alu_result
+            state.mem_wb_next.mem_read_data = state.mem_read_data
+            state.mem_wb_next.reg_write = state.ex_mem.reg_write
+            state.mem_wb_next.mem_to_reg = state.ex_mem.mem_to_reg
+            state.mem_wb_next.wb_pc4 = state.ex_mem.wb_pc4
+
+        # EX stage
+        if state.id_ex.valid:
+            state.pc = state.id_ex.pc
+            state.imm = state.id_ex.imm
+            state.read_data_1 = state.id_ex.read_data_1
+            state.read_data_2 = state.id_ex.read_data_2
+            state.alu_src = state.id_ex.alu_src
+            state.alu_ctrl = state.id_ex.alu_ctrl
+            state.branch = state.id_ex.branch
+            state.jump = state.id_ex.jump
+            state.jump_reg = state.id_ex.jump_reg
+            execute()
+
+            state.ex_mem_next.valid = True
+            state.ex_mem_next.pc4 = state.id_ex.pc4
+            state.ex_mem_next.rd = state.id_ex.rd
+            state.ex_mem_next.alu_result = state.alu_result
+            state.ex_mem_next.zero = state.alu_zero
+            state.ex_mem_next.branch_target = state.branch_target
+            state.ex_mem_next.store_data = state.id_ex.read_data_2
+            state.ex_mem_next.reg_write = state.id_ex.reg_write
+            state.ex_mem_next.mem_read = state.id_ex.mem_read
+            state.ex_mem_next.mem_write = state.id_ex.mem_write
+            state.ex_mem_next.mem_to_reg = state.id_ex.mem_to_reg
+            state.ex_mem_next.branch = state.id_ex.branch
+            state.ex_mem_next.jump = state.id_ex.jump
+            state.ex_mem_next.wb_pc4 = state.id_ex.wb_pc4
+
+            # temporary PC update hook until branch/flush logic is moved fully to pipeline control
+            update_pc()
+
+        # ID stage
+        if state.if_id.valid:
+            decode_and_fill_state(state.if_id.instr)
+
+            state.id_ex_next.valid = True
+            state.id_ex_next.pc = state.if_id.pc
+            state.id_ex_next.pc4 = state.if_id.pc4
+            state.id_ex_next.opcode = state.opcode
+            state.id_ex_next.funct3 = state.funct3
+            state.id_ex_next.funct7 = state.funct7
+            state.id_ex_next.rs1 = state.rs1
+            state.id_ex_next.rs2 = state.rs2
+            state.id_ex_next.rd = state.rd
+            state.id_ex_next.imm = state.imm
+            state.id_ex_next.read_data_1 = state.read_data_1
+            state.id_ex_next.read_data_2 = state.read_data_2
+            state.id_ex_next.reg_write = state.reg_write
+            state.id_ex_next.mem_read = state.mem_read
+            state.id_ex_next.mem_write = state.mem_write
+            state.id_ex_next.mem_to_reg = state.mem_to_reg
+            state.id_ex_next.alu_src = state.alu_src
+            state.id_ex_next.alu_op = state.alu_op
+            state.id_ex_next.branch = state.branch
+            state.id_ex_next.jump = state.jump
+            state.id_ex_next.jump_reg = state.jump_reg
+            state.id_ex_next.wb_pc4 = state.wb_pc4
+            state.id_ex_next.alu_ctrl = state.alu_ctrl
+
+        # IF stage
+        inst = fetch()
+        if inst is None:
+            fetch_done = True
+        else:
+            state.if_id_next.valid = True
+            state.if_id_next.pc = state.pc
+            state.if_id_next.pc4 = state.next_pc
+            state.if_id_next.instr = inst
+            # default sequential fetch movement (subject to EX update_pc above)
+            if not (state.id_ex.valid and (state.id_ex.branch == 1 or state.id_ex.jump == 1)):
+                state.pc = state.next_pc
+
+        # commit next pipeline registers at end of cycle
+        state.if_id = state.if_id_next
+        state.id_ex = state.id_ex_next
+        state.ex_mem = state.ex_mem_next
+        state.mem_wb = state.mem_wb_next
 
         print_cycle_changes(old_rf, old_mem)
+
+        if fetch_done and pipeline_empty():
+            break
 
     print("\nprogram terminated:")
     print(f"total execution time is {state.total_clock_cycles} cycles")

@@ -1,4 +1,105 @@
 # holds global state for the cpu
+from dataclasses import dataclass, field
+
+# IF/ID register
+@dataclass
+class IF_ID:
+    valid:bool = False # if the instruction is valid (false, so new objects start as bubble (bubble means no instruction is being executed))
+    pc: int = 0 # program counter
+    pc4: int = 0 # next program counter
+    instr: str = "" # instruction
+
+# ID/EX register
+@dataclass
+class ID_EX:
+    valid: bool = False
+    pc: int = 0
+    pc4: int = 0
+    # decoded fields
+    opcode: str = ""
+    funct3: int = 0
+    funct7: int = 0
+    rs1: int = 0
+    rs2: int = 0
+    rd: int = 0
+    imm: int = 0
+
+    # register values read in decode
+    read_data_1: int = 0
+    read_data_2: int = 0
+    # control bits generated in decode
+    reg_write: int = 0
+    mem_read: int = 0
+    mem_write: int = 0
+    mem_to_reg: int = 0
+    alu_src: int = 0
+    alu_op: int = 0
+    branch: int = 0
+    jump: int = 0
+    jump_reg: int = 0
+    wb_pc4: int = 0
+    alu_ctrl: int = 0
+
+# EX/MEM register
+@dataclass
+class EX_MEM:
+    valid: bool = False
+    pc4: int = 0
+    rd: int = 0
+    # EX outputs
+    alu_result: int = 0
+    zero: int = 0
+    branch_target: int = 0
+    store_data: int = 0   # value to write for sw
+    # control bits that MEM/WB still need
+    reg_write: int = 0
+    mem_read: int = 0
+    mem_write: int = 0
+    mem_to_reg: int = 0
+    branch: int = 0
+    jump: int = 0
+    wb_pc4: int = 0
+
+# MEM/WB register
+@dataclass
+class MEM_WB:
+    valid: bool = False
+    pc4: int = 0
+    rd: int = 0
+    # values available for WB mux
+    alu_result: int = 0
+    mem_read_data: int = 0
+    # control bits needed only in WB
+    reg_write: int = 0
+    mem_to_reg: int = 0
+    wb_pc4: int = 0
+
+#global pipeline register objects
+#objects are used to store the state of the pipeline
+if_id = IF_ID()
+id_ex = ID_EX()
+ex_mem = EX_MEM()
+mem_wb = MEM_WB()
+
+#next cycle buffers (write here during cycle, then commit at end)
+#used for storing the state of the pipeline for the next cycle
+if_id_next = IF_ID()
+id_ex_next = ID_EX()
+ex_mem_next = EX_MEM()
+mem_wb_next = MEM_WB()
+
+#reset the pipeline registers
+def reset_pipeline_regs():
+    global if_id, id_ex, ex_mem, mem_wb
+    global if_id_next, id_ex_next, ex_mem_next, mem_wb_next
+    if_id = IF_ID()
+    id_ex = ID_EX()
+    ex_mem = EX_MEM()
+    mem_wb = MEM_WB()
+    if_id_next = IF_ID()
+    id_ex_next = ID_EX()
+    ex_mem_next = EX_MEM()
+    mem_wb_next = MEM_WB()
 
 # pc is byte address: 0, 4, 8, ... ; instruction index = pc // 4 (integer division to give index)
 pc = 0  # program counter
