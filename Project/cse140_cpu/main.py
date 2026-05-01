@@ -65,8 +65,8 @@ def reset_cpu_state():
 
 #initialize the sample data for part 1 and part 2
 def init_samples(filename):
-    # part 1 sample init
-    if filename.endswith("sample_part1.txt"): #assigns the values to the registers and memory
+    # default init for all non-part2 samples (same setup as part1)
+    if not filename.endswith("sample_part2.txt"):
         state.rf[1] = 0x20 
         state.rf[2] = 0x5 
         state.rf[10] = 0x70
@@ -75,7 +75,7 @@ def init_samples(filename):
         state.d_mem[0x74 // 4] = 0x10
 
     #part 2 sample init
-    elif filename.endswith("sample_part2.txt"): #assigns the values to the registers and memory
+    else: #assigns the values to the registers and memory
         state.rf[8] = 0x20   # s0
         state.rf[10] = 0x5   # a0
         state.rf[11] = 0x2   # a1
