@@ -1,0 +1,7 @@
+.cursor/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.log
+*.tmp

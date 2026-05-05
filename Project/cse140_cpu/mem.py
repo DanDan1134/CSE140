@@ -6,6 +6,10 @@ import state
 
 
 def Mem(address, write_data=0):
+    # Non-memory instructions should not touch or validate data memory.
+    if state.mem_read != 1 and state.mem_write != 1:
+        return
+
     #Convert byte address to word index with 4 bytes per entry
     word_index = address // 4
 
